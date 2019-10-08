@@ -31,6 +31,7 @@ class FlaskTracing(opentracing.Tracer):
         self._trace_all_requests = trace_all_requests
         self._start_span_cb = start_span_cb
         self._current_scopes = {}
+        self._scope_manager = self.tracer.scope_manager
         self._trust_http_headers = trust_http_headers
 
         # tracing all requests requires that app != None
