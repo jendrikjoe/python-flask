@@ -10,7 +10,7 @@ class FlaskTracing(opentracing.Tracer):
     @param tracer the OpenTracing tracer implementation to trace requests with
     """
     def __init__(self, tracer=None, trace_all_requests=None, app=None,
-                 traced_attributes=[], start_span_cb=None):
+                 traced_attributes=[], start_span_cb=None, trust_http_headers=True):
 
         if start_span_cb is not None and not callable(start_span_cb):
             raise ValueError('start_span_cb is not callable')
@@ -31,6 +31,7 @@ class FlaskTracing(opentracing.Tracer):
         self._trace_all_requests = trace_all_requests
         self._start_span_cb = start_span_cb
         self._current_scopes = {}
+        self._trust_http_headers = trust_http_headers
 
         # tracing all requests requires that app != None
         if self._trace_all_requests:
@@ -113,14 +114,16 @@ class FlaskTracing(opentracing.Tracer):
         headers = {}
         for k, v in request.headers:
             headers[k.lower()] = v
-
-        try:
-            span_ctx = self.tracer.extract(opentracing.Format.HTTP_HEADERS,
-                                           headers)
-            scope = self.tracer.start_active_span(operation_name,
-                                                  child_of=span_ctx)
-        except (opentracing.InvalidCarrierException,
-                opentracing.SpanContextCorruptedException):
+        if self._trust_http_headers:
+            try:
+                span_ctx = self.tracer.extract(opentracing.Format.HTTP_HEADERS,
+                                               headers)
+                scope = self.tracer.start_active_span(operation_name,
+                                                      child_of=span_ctx)
+            except (opentracing.InvalidCarrierException,
+                    opentracing.SpanContextCorruptedException):
+                scope = self.tracer.start_active_span(operation_name)
+        else:
             scope = self.tracer.start_active_span(operation_name)
 
         self._current_scopes[request] = scope
